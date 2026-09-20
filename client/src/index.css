@@ -340,3 +340,9 @@ h2 { margin-top: 16px; font-size: clamp(46px, 5vw, 72px); line-height: .82; lett
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
+
+.copy-actions { display: flex; gap: 8px; margin-top: 12px; }
+.copy-actions button { flex: 1; min-height: 30px; border: 1px solid rgba(37, 37, 35, .14); color: #66705b; background: rgba(255,255,255,.22); font-size: 9px; letter-spacing: .05em; text-transform: uppercase; transition: background 180ms var(--ease-out), color 180ms var(--ease-out), border-color 180ms var(--ease-out); }
+.copy-actions button:first-child { color: #43737a; border-color: rgba(67,115,122,.25); }
+.copy-actions button:hover { border-color: #69775c; background: #e1e6d5; color: #394536; }
+@media (max-width: 460px) { .copy-actions button { font-size: 8px; } }

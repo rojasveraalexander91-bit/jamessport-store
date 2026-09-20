@@ -38,8 +38,34 @@ function formatMoney(amount: string, currencyCode = "USD") {
   }).format(Number(amount));
 }
 
+async function copyProductImage(product: Product) {
+  const url = product.images[0]?.url;
+  if (!url) return;
+  try {
+    const response = await fetch(url, { mode: "cors" });
+    const blob = await response.blob();
+    if (navigator.clipboard?.write && typeof ClipboardItem !== "undefined") {
+      await navigator.clipboard.write([new ClipboardItem({ [blob.type || "image/png"]: blob })]);
+      toast.success("Imagen copiada", { description: "La foto está lista para pegar." });
+      return;
+    }
+  } catch {
+    // Fall through to a URL copy when binary clipboard access is unavailable.
+  }
+  await navigator.clipboard?.writeText(url);
+  toast.success("Enlace de imagen copiado");
+}
+
+async function copyProductInfo(product: Product) {
+  const variant = firstAvailableVariant(product);
+  const sizes = product.tags.filter(tag => tag.startsWith("US ")).join(", ") || "Consultar disponibilidad";
+  const text = `👟 Modelo: ${product.title} | Marca: ${product.vendor || "CrochetEra"} | Precio: ${formatMoney(product.priceRange.min.amount, product.priceRange.min.currencyCode)} | Tallas: ${sizes} | 🖼️ Foto: ${product.images[0]?.url || ""}`;
+  await navigator.clipboard?.writeText(text);
+  toast.success("Info copiada", { description: variant ? "Lista para compartir." : "Datos del modelo copiados." });
+}
+
 function displayVariantTitle(title: string) {
-  return title === "Default Title" ? "One size" : title;
+  return title === "Default Title" ? "Talla estándar" : title;
 }
 
 function firstAvailableVariant(product: Product): ProductVariant | undefined {
@@ -118,12 +144,12 @@ function Hero({ featuredProduct }: { featuredProduct?: Product }) {
   return (
     <section className="hero-section">
       <div className="hero-copy">
-        <div className="eyebrow"><Sparkles size={13} /> The soft edit / 01</div>
-        <h1>Textura para<br /><em>sentir.</em></h1>
-        <p className="hero-description">Piezas tejidas a mano para días que se sienten como una pausa. Siluetas suaves, color tranquilo y la belleza de lo imperfecto.</p>
+        <div className="eyebrow"><Sparkles size={13} /> The sneaker edit / 01</div>
+        <h1>Tu ritmo.<br /><em>Tu par.</em></h1>
+        <p className="hero-description">Zapatillas seleccionadas para moverse a tu manera. Siluetas icónicas, tonos suaves y detalles que se sienten tan bien como se ven.</p>
         <div className="hero-actions">
           <button className="button button-dark" onClick={() => document.getElementById("shop")?.scrollIntoView({ behavior: "smooth" })}>Descubrir la colección <ArrowUpRight size={16} /></button>
-          <span className="hero-note">Nueva colección<br /><strong>SS / 26</strong></span>
+          <span className="hero-note">Nueva colección<br /><strong>DROP / 01</strong></span>
         </div>
       </div>
       <div className="hero-visual">
@@ -159,13 +185,17 @@ function ProductCard({ product, onAdd }: { product: Product; onAdd: (product: Pr
       </div>
       <div className="product-meta">
         <div>
-          <p className="product-category">{product.productType || "Handmade"}</p>
+          <p className="product-category">{product.vendor || "CrochetEra"} / {product.productType || "Sneakers"}</p>
           <Link href={`/product/${product.handle}`} className="product-title">{product.title}</Link>
         </div>
         <span className="product-price">{formatMoney(price.amount, price.currencyCode)}</span>
       </div>
       <div className="product-tags">
         {(product.tags || []).filter(tag => !["New in", "Soft accessories", "Everyday carry"].includes(tag)).slice(0, 2).map(tag => <span key={tag}>{tag}</span>)}
+      </div>
+      <div className="copy-actions">
+        <button onClick={() => copyProductImage(product)}>Copiar imagen</button>
+        <button onClick={() => copyProductInfo(product)}>Copiar info</button>
       </div>
     </article>
   );
@@ -192,13 +222,13 @@ function ShopSection({ products }: { products: Product[] }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const { addItem } = useCart();
 
-  const categories = useMemo(() => Array.from(new Set(products.map(product => product.productType).filter(Boolean) as string[])), [products]);
+  const categories = useMemo(() => Array.from(new Set(products.map(product => product.vendor).filter(Boolean) as string[])), [products]);
   const colors = useMemo(() => Array.from(new Set(products.flatMap(product => product.tags).filter(tag => ["Sage", "Cream", "Oat", "Blush", "Charcoal", "Terracotta"].includes(tag)))), [products]);
-  const sizes = useMemo(() => Array.from(new Set(products.flatMap(product => product.tags).filter(tag => ["Small", "Medium", "Large", "One size"].includes(tag)))), [products]);
+  const sizes = useMemo(() => Array.from(new Set(products.flatMap(product => product.tags).filter(tag => tag.startsWith("US ")))).sort(), [products]);
   const filteredProducts = useMemo(() => products.filter(product => {
     const haystack = `${product.title} ${product.productType || ""} ${product.tags.join(" ")}`.toLowerCase();
     return haystack.includes(query.toLowerCase())
-      && (category === "all" || product.productType === category)
+      && (category === "all" || product.vendor === category)
       && (color === "all" || product.tags.includes(color))
       && (size === "all" || product.tags.includes(size));
   }), [products, query, category, color, size]);
@@ -219,15 +249,15 @@ function ShopSection({ products }: { products: Product[] }) {
       <div className="section-intro">
         <div>
           <div className="eyebrow">Shop the edit <span className="eyebrow-line" /></div>
-          <h2>Piezas para <em>quedarse.</em></h2>
+          <h2>Pares para <em>moverse.</em></h2>
         </div>
-        <p className="section-caption">Diseñadas en pequeñas tandas,<br />tejidas con intención.</p>
+        <p className="section-caption">Zapatillas para todos los días,<br />elegidas con intención.</p>
       </div>
       <div className="shop-toolbar">
-        <div className="search-field"><Search size={16} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar piezas..." aria-label="Buscar productos" /></div>
+        <div className="search-field"><Search size={16} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar zapatillas..." aria-label="Buscar zapatillas" /></div>
         <button className="filter-toggle" onClick={() => setFiltersOpen(!filtersOpen)}><SlidersHorizontal size={16} /> Filters <span>{[category, color, size].filter(value => value !== "all").length || ""}</span></button>
         <div className={`filters ${filtersOpen ? "is-open" : ""}`}>
-          <FilterSelect label="Category" value={category} options={categories} onChange={setCategory} />
+          <FilterSelect label="Brand" value={category} options={categories} onChange={setCategory} />
           <FilterSelect label="Color" value={color} options={colors} onChange={setColor} />
           <FilterSelect label="Size" value={size} options={sizes} onChange={setSize} />
         </div>
@@ -238,7 +268,7 @@ function ShopSection({ products }: { products: Product[] }) {
           {filteredProducts.map(product => <ProductCard product={product} onAdd={addProduct} key={product.id} />)}
         </div>
       ) : (
-        <div className="empty-state"><Sparkles size={22} /><h3>Nothing here yet.</h3><p>Prueba con otro filtro o vuelve a ver la colección completa.</p><button className="text-button" onClick={() => { setQuery(""); setCategory("all"); setColor("all"); setSize("all"); }}>Reset filters <ArrowRight size={15} /></button></div>
+        <div className="empty-state"><Sparkles size={22} /><h3>No encontramos ese par.</h3><p>Prueba con otra marca, talla o color.</p><button className="text-button" onClick={() => { setQuery(""); setCategory("all"); setColor("all"); setSize("all"); }}>Reset filters <ArrowRight size={15} /></button></div>
       )}
     </section>
   );
@@ -251,7 +281,7 @@ function RecommendedRail({ products }: { products: Product[] }) {
   return (
     <section className="recommended-section" id="journal">
       <div className="recommended-header">
-        <div><div className="eyebrow">You may also like <span className="eyebrow-line" /></div><h2>Small joys,<br /><em>well made.</em></h2></div>
+        <div><div className="eyebrow">You may also like <span className="eyebrow-line" /></div><h2>Good pairs,<br /><em>good miles.</em></h2></div>
         <div className="rail-controls"><button onClick={() => scrollRail(-1)} aria-label="Anterior"><ChevronLeft size={18} /></button><button onClick={() => scrollRail(1)} aria-label="Siguiente"><ChevronRight size={18} /></button></div>
       </div>
       <div className="recommended-rail" ref={railRef}>
@@ -259,7 +289,7 @@ function RecommendedRail({ products }: { products: Product[] }) {
           const variant = firstAvailableVariant(product);
           return <Link href={`/product/${product.handle}`} className="recommended-card" key={`${product.id}-${index}`}>
             <ImageFrame src={product.images[0]?.url} alt={product.title} />
-            <div className="recommended-card-meta"><span>{product.productType || "Crochet"}</span><strong>{product.title}</strong><span>{formatMoney(product.priceRange.min.amount, product.priceRange.min.currencyCode)}</span></div>
+            <div className="recommended-card-meta"><span>{product.vendor || "Sneakers"} / {product.productType || "Everyday"}</span><strong>{product.title}</strong><span>{formatMoney(product.priceRange.min.amount, product.priceRange.min.currencyCode)}</span></div>
             <button className="recommended-add" aria-label={`Añadir ${product.title}`} onClick={async event => { event.preventDefault(); event.stopPropagation(); if (variant) { await addItem(variant.id); toast.success("Added to your bag"); } }}>+</button>
           </Link>;
         })}
@@ -272,14 +302,14 @@ function StoryBand() {
   return (
     <section className="story-band" id="story">
       <div className="story-mark">CE<span>•</span>26</div>
-      <div className="story-copy"><div className="eyebrow">A little more human</div><h2>Hecho para<br /><em>sentir.</em></h2><p>CrochetEra nace de una idea sencilla: que vestirse puede ser un ritual. Creamos piezas con las manos, en colores que dejan espacio para respirar y formas que acompañan, no que compiten.</p><button className="text-button">Conoce nuestra historia <ArrowRight size={15} /></button></div>
-      <div className="story-details"><div><span>01</span><strong>Textura táctil</strong><p>Hilos seleccionados<br />para durar.</p></div><div><span>02</span><strong>Ritmo lento</strong><p>Pequeñas tandas,<br />menos desperdicio.</p></div><div><span>03</span><strong>Diseño suave</strong><p>Color tranquilo,<br />formas honestas.</p></div></div>
+      <div className="story-copy"><div className="eyebrow">A little more human</div><h2>Hecho para<br /><em>moverte.</em></h2><p>CrochetEra selecciona sneakers para acompañar tu ritmo real: mañanas rápidas, calles largas y planes que aparecen sin aviso. Color tranquilo, formas honestas y comodidad que se nota.</p><button className="text-button">Conoce nuestra historia <ArrowRight size={15} /></button></div>
+      <div className="story-details"><div><span>01</span><strong>Comodidad real</strong><p>Detalles pensados<br />para caminar.</p></div><div><span>02</span><strong>Color tranquilo</strong><p>Neutros suaves,<br />acentos precisos.</p></div><div><span>03</span><strong>Diseño diario</strong><p>Pares versátiles,<br />ritmo propio.</p></div></div>
     </section>
   );
 }
 
 function Footer() {
-  return <footer className="site-footer"><div className="footer-top"><div><Link href="/" className="wordmark footer-wordmark"><span className="wordmark-c">C</span>rochet<span className="wordmark-era">Era</span><span className="wordmark-dot">.</span></Link><p className="footer-tagline">Textura para sentir.<br />Piezas para quedarse.</p></div><div className="footer-column"><span className="footer-label">Explore</span><a href="#shop">Shop all</a><a href="#story">Our story</a><a href="#journal">Journal</a></div><div className="footer-column"><span className="footer-label">Care</span><a href="#shipping">Shipping & returns</a><a href="#size">Size guide</a><a href="#care">Product care</a></div><div className="footer-newsletter"><span className="footer-label">Stay soft</span><p>Notas de la colección, directo a tu inbox.</p><form onSubmit={event => { event.preventDefault(); toast.success("You're on the list", { description: "Mira tu inbox para la bienvenida." }); }}><input type="email" placeholder="Tu email" required aria-label="Correo electrónico" /><button type="submit" aria-label="Suscribirse"><ArrowUpRight size={17} /></button></form><div className="footer-social"><a href="#instagram" aria-label="Instagram"><Instagram size={17} /></a><a href="#mail" aria-label="Email"><Mail size={17} /></a></div></div></div><div className="footer-bottom"><span>© 2026 CrochetEra Studio</span><span>Made with intention in small batches</span><span>Privacy · Terms · Cookies</span></div></footer>;
+  return <footer className="site-footer"><div className="footer-top"><div><Link href="/" className="wordmark footer-wordmark"><span className="wordmark-c">C</span>rochet<span className="wordmark-era">Era</span><span className="wordmark-dot">.</span></Link><p className="footer-tagline">Tu ritmo.<br />Tu par.</p></div><div className="footer-column"><span className="footer-label">Explore</span><a href="#shop">Shop all</a><a href="#story">Our story</a><a href="#journal">Journal</a></div><div className="footer-column"><span className="footer-label">Care</span><a href="#shipping">Shipping & returns</a><a href="#size">Size guide</a><a href="#care">Product care</a></div><div className="footer-newsletter"><span className="footer-label">Stay soft</span><p>Notas de la colección, directo a tu inbox.</p><form onSubmit={event => { event.preventDefault(); toast.success("You're on the list", { description: "Mira tu inbox para la bienvenida." }); }}><input type="email" placeholder="Tu email" required aria-label="Correo electrónico" /><button type="submit" aria-label="Suscribirse"><ArrowUpRight size={17} /></button></form><div className="footer-social"><a href="#instagram" aria-label="Instagram"><Instagram size={17} /></a><a href="#mail" aria-label="Email"><Mail size={17} /></a></div></div></div><div className="footer-bottom"><span>© 2026 CrochetEra Studio</span><span>Made with intention in small batches</span><span>Privacy · Terms · Cookies</span></div></footer>;
 }
 
 function CartDrawer() {
@@ -292,8 +322,8 @@ function CartDrawer() {
 export default function Home() {
   const productQueryInput = useMemo(() => ({ first: 24 }), []);
   const { data: products = [], isLoading, isError } = trpc.commerce.products.list.useQuery(productQueryInput);
-  const featuredProduct = products.find(product => product.productType === "Cardigans") || products[0];
-  return <div className="storefront"><Header />{isLoading ? <main className="loading-state"><Loader2 className="spin" size={28} /><span>Preparing the soft edit...</span></main> : isError ? <main className="error-state"><Sparkles size={24} /><h1>We’re taking a quiet moment.</h1><p>El catálogo de Shopify no está disponible todavía.</p></main> : <><main><Hero featuredProduct={featuredProduct} /><ShopSection products={products} /><StoryBand /><RecommendedRail products={products} /></main><Footer /></>}<CartDrawer /></div>;
+  const featuredProduct = products[0];
+  return <div className="storefront"><Header />{isLoading ? <main className="loading-state"><Loader2 className="spin" size={28} /><span>Preparing the sneaker edit...</span></main> : isError ? <main className="error-state"><Sparkles size={24} /><h1>We’re taking a quiet moment.</h1><p>El catálogo de Shopify no está disponible todavía.</p></main> : <><main><Hero featuredProduct={featuredProduct} /><ShopSection products={products} /><StoryBand /><RecommendedRail products={products} /></main><Footer /></>}<CartDrawer /></div>;
 }
 
 export function ProductPage() {
