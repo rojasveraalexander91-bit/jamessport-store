@@ -321,9 +321,12 @@ function CartDrawer() {
 
 export default function Home() {
   const productQueryInput = useMemo(() => ({ first: 24 }), []);
-  const { data: products = [], isLoading, isError } = trpc.commerce.products.list.useQuery(productQueryInput);
+  const { data: products = [], isLoading, isError, error } = trpc.commerce.products.list.useQuery(productQueryInput);
   const featuredProduct = products[0];
-  return <div className="storefront"><Header />{isLoading ? <main className="loading-state"><Loader2 className="spin" size={28} /><span>Preparing the sneaker edit...</span></main> : isError ? <main className="error-state"><Sparkles size={24} /><h1>We’re taking a quiet moment.</h1><p>El catálogo de Shopify no está disponible todavía.</p></main> : <><main><Hero featuredProduct={featuredProduct} /><ShopSection products={products} /><StoryBand /><RecommendedRail products={products} /></main><Footer /></>}<CartDrawer /></div>;
+  const errorMessage = error?.message?.toLowerCase().includes("not configured")
+    ? "Este entorno no tiene configuradas las credenciales de Shopify."
+    : "Shopify no respondió al catálogo. Revisa las variables de entorno y vuelve a cargar.";
+  return <div className="storefront"><Header />{isLoading ? <main className="loading-state"><Loader2 className="spin" size={28} /><span>Preparing the sneaker edit...</span></main> : isError ? <main className="error-state"><Sparkles size={24} /><h1>Catálogo temporalmente no disponible.</h1><p>{errorMessage}</p><button className="text-button" onClick={() => window.location.reload()}>Reintentar <ArrowRight size={15} /></button></main> : <><main><Hero featuredProduct={featuredProduct} /><ShopSection products={products} /><StoryBand /><RecommendedRail products={products} /></main><Footer /></>}<CartDrawer /></div>;
 }
 
 export function ProductPage() {
